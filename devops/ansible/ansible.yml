@@ -1,22 +1,49 @@
-resource "google_compute_instance" "default" {
-  name         = "meu-projeto"
-  machine_type = "f1-micro"
-  zone         = "us-central1-a"
+---
+# O nome do playbook
+- name: Configure o Google Cloud Storage e faça o upload do projeto
+  hosts: localhost
+  connection: local
+  become: yes
+  vars:
+    # As credenciais da conta do Google Cloud
+    gcp_credentials: "{{ lookup('file', 'path/to/credentials.json') }}"
+    # O nome do projeto no Google Cloud
+    gcp_project: my-project
+    # O nome do bucket de armazenamento
+    gcp_bucket: my-project-bucket
+  tasks:
+    # Instale as bibliotecas do Google Cloud
+    - name: Calculadora
+      pip:
+        name:
+          - google-auth
+          - google-auth-oauthlib
+          - google-auth-httplib2
+         
 
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-9"
-    }
-  }
+    # Crie o bucket de armazenamento
+    - name: Crie o bucket de armazenamento
+      gcp_storage_bucket:
+        name: "{{ gcp_bucket }}"
+        project: "{{ gcp_project }}"
+        credentials: "{{ gcp_credentials }}"
+        state: present
 
-  network_interface {
-    network = "default"
+    # Faça o upload dos arquivos do projeto para o bucket de armazenamento github.com/dubcom/calculator
+    - name: Faça o upload dos arquivos do projeto para o bucket
+      gcp_storage_object:
+        bucket: "{{ gcp_bucket }}"
+        object: "{{ item }}"
+        src: "build/{{ item }}"
+        project: "{{ gcp_project }}"
+        credentials: "{{ gcp_credentials }}"
+      loop: "{{ lookup('file', 'path/to/files.txt') }}"
+      loop_control:
+        loop_var: item
 
-    access_config {
-    }
-  }
+    # execute o projeto calculadora
+    - name: Execute o projeto calculadora
+      shell: "gcloud app deploy --project {{ gcp_project }} --bucket {{ gcp_bucket }} --verbosity=debug"
+      args:
+        chdir: "path/to/project"
 
-  metadata = {
-    ssh-keys = "meu-usuario:ssh-rsa AAAAB3NzaC1yc2EAAA...
-  }
-}

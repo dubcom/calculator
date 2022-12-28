@@ -1,96 +1,39 @@
-
-# Criar uma instância de VM no GCP
-resource "google_compute_instance" "vm" {
-  name         = "vm"
-  machine_type = "f1-micro"
-  zone         = "us-central1-a"
-
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-9"
-    }
-  }
-
-  network_interface {
-    network = "default"
-
-    access_config {
-      // IP Público
-    }
-  }
-
-  metadata_startup_script = <<EOT
-    #!/bin/bash
-    apt-get update
-    apt-get install -y git
-   
-
-# Instalar o Git na instância de VM
-resource "null_resource" "install_git" {
-  connection {
-    type        = "ssh"
-    user        = "meu-usuario"
-    host        = google_compute_instance.vm.network_interface.0.access_config.0.assigned_nat_ip
-    private_key = file("~/.ssh/id_rsa")
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "apt-get update",
-      "apt-get install -y git",
-    ]
-  }
+# Configure o provedor do Google Cloud
+provider "google" {
+  project = "my-Calculator"
+  region  = "us-central1"
 }
 
-# Clonar o repositório do projeto na instância de VM
-resource "null_resource" "clone_repository" {
-  connection {
-    type        = "ssh"
-    user        = "meu-usuario"
-    host        = google_compute_instance.vm.network_interface.0.access_config.0.assigned_nat_ip
-    private_key = file("~/.ssh/id_rsa")
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "git clone https://github.com/dubcom/calculator.git",
-    ]
-  }
+# Crie o bucket de armazenamento
+resource "google_storage_bucket" "project_bucket" {
+  name = "my-project-bucket"
+  location = "us-central1"
+  storage_class = "REGIONAL"
 }
 
-# Instalar as dependências do projeto na instância de VM
-resource "null_resource" "install_dependencies" {
-  connection {
-    type        = "ssh"
-    user        = "meu-usuario"
-    host        = google
-_compute_instance.vm.network_interface.0.access_config.0.assigned_nat_ip
-    private_key = file("~/.ssh/id_rsa")
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "cd calculator",
-      "npm install",
-    ]
-  }
+# Faça o upload dos arquivos do projeto para o bucket
+resource "google_storage_bucket_object" "project_files" {
+  count     = length(var.files)
+  bucket    = google_storage_bucket.project_bucket.name
+  name      = var.files[count.index]
+  source    = "build/${var.files[count.index]}"
 }
 
-# Executar o projeto na instância de VM
+# Defina uma variável para os arquivos do projeto
+variable "files" {
+  type        = list(string)
+  description = "Lista de arquivos do projeto para fazer upload"
+}
 
-resource "null_resource" "run_project" {
-  connection {
-    type        = "ssh"
-    user        = "meu-usuario"
-    host        = google_compute_instance.vm.network_interface.0.access_config.0.assigned_nat_ip
-    private_key = file("~/.ssh/id_rsa")
-  }
+# Defina uma variável para o nome do projeto
+variable "project_name" {
+  type        = string
+  description = "Nome do projeto"
+}
 
-  provisioner "remote-exec" {
-    inline = [
-      "cd calculator",
-      "npm start",
-    ]
-  }
+# Defina uma variável para o nome do bucket
+variable "bucket_name" {
+  type        = string
+  description = "Nome do bucket"
 }
 
